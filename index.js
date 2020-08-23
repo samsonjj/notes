@@ -51,12 +51,20 @@ function main() {
         dateString
     ));
 
+    const filename = 'default.txt';
+
     // we just write to defaut.txt for now
     const file = path.join(
         settings.notesPath,
         dateString,
-        'default.txt'
+        filename
     );
+
+    // create notes file with auto-generated first line
+    if (!fs.existsSync(file)) {
+        const data = `#${dateString} - ${filename}`;
+        fs.writeFileSync(file, data);
+    }
 
     // open file in vim
     spawn('vim', [file], { stdio: 'inherit' });
