@@ -1,0 +1,14 @@
+{
+  "name": "notes",
+  "version": "0.1.0",
+  "description": "A simple note taking cli, with a focus on daily notes.",
+  "bin": {
+    "notes": "./index.js"
+  },
+  "repository": "https://github.com/samsonjj/notes",
+  "author": "Jonathan Samson <jonathansamsonvcu@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^6.0.0"
+  }
+}
