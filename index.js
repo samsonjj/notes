@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 const { program } = require('commander');
-const { spawn, spawnSync } = require('child_process');
+const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const moment = require('moment');
 
-const USER_SETTINGS_PATH = path.join(os.homedir(), '.notes_config');
+const USER_SETTINGS_PATH = path.join(os.homedir(), '.config', 'notes', 'userSettings.json');
 const DATE_FLAG = '<date>';
 const FILENAME_FLAG = '<filename>';
 
@@ -62,6 +62,10 @@ function openFileInVim(path) {
 
 function loadUserSettings() {
     if (!fs.existsSync(USER_SETTINGS_PATH)) {
+        const parts = USER_SETTINGS_PATH.split('/');
+        const dir = parts.slice(0, parts.length-1).join('/');
+
+        fs.mkdirSync(dir, { recursive: true });
         fs.writeFileSync(
             USER_SETTINGS_PATH,
             JSON.stringify(Settings.defaultSettings, null, 2) + '\n'
@@ -82,15 +86,11 @@ function main(filename = 'default.txt', {
 
     filename = correctExtension(filename, settings.extension);
 
-    console.log(offset);
-    
     offset = Number(offset);
     if (Number.isNaN(offset)) offset = 0;
 
     // use the current date as the folder name
     const dateString = getDateString(moment(date).add(offset, 'day'));
-
-    console.log(dateString, date, offset);
 
     // create directories
     fs.mkdirSync(
@@ -106,7 +106,13 @@ function main(filename = 'default.txt', {
 
     // create notes file
     if (!fs.existsSync(file)) {
-        const data = fromTemplate(settings.template, {
+        let template = settings.template;
+        if (settings.templateFile) { 
+            try { template = String(fs.readFileSync(settings.templateFile)) }
+            catch (err) { console.error(`Could not read template file at ${settings.templateFile}.`) }
+        }
+
+        const data = fromTemplate(template, {
             date: dateString,
             filename,
             filepath: file,
