@@ -9,6 +9,7 @@
   "author": "Jonathan Samson <jonathansamsonvcu@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "commander": "^6.0.0"
+    "commander": "^6.0.0",
+    "moment": "^2.27.0"
   }
 }
