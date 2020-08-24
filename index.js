@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const moment = require('moment');
+const { parse } = require('path');
 
 const USER_SETTINGS_PATH = path.join(os.homedir(), '.config', 'notes', 'userSettings.json');
 const DATE_FLAG = '<date>';
@@ -42,7 +43,7 @@ function fromTemplate(template, { date, filename }) {
  * @param {moment.Moment} date 
  */
 function getDateString(date) {
-    return date.toISOString().slice(0, 10);
+    return `${date.year()}-${date.month()+1}-${date.date()}`;
 }
 
 function correctExtension(filename, extension) {
@@ -77,8 +78,26 @@ function loadUserSettings() {
     );
 }
 
+/**
+ * Parse input date from command line.
+ * @param {String} date 
+ * @returns {moment.Moment} momentDate
+ */
+function parseDateOrDefault(date, _default) {
+    try {
+        return moment(date);
+    } catch {
+        return _default 
+    }
+}
 
-function main(filename = 'default.txt', {
+function parseIntOrDefault(offset, _default) {
+    const n = parseInt(offset);
+    if (Number.isNaN(n)) return _default;   
+    return n;
+}
+
+function open(filename = 'default.txt', {
     date,
     offset,
 }) { 
@@ -86,11 +105,8 @@ function main(filename = 'default.txt', {
 
     filename = correctExtension(filename, settings.extension);
 
-    offset = Number(offset);
-    if (Number.isNaN(offset)) offset = 0;
-
     // use the current date as the folder name
-    const dateString = getDateString(moment(date).add(offset, 'day'));
+    const dateString = getDateString(date.add(offset, 'day'));
 
     // create directories
     fs.mkdirSync(
@@ -123,17 +139,57 @@ function main(filename = 'default.txt', {
     openFileInVim(file)
 }
 
+/**
+ * 
+ * @param {moment.Moment} date 
+ * @param {Number} offset 
+ */
+function list(date, offset) {
+    const settings = new Settings(loadUserSettings());
+
+    const notesDir = fs.readdirSync(settings.notesPath);
+    const dateString = getDateString(date.add(offset));
+    if (notesDir.findIndex(value => value === dateString) === -1) {
+        console.log(`No notes for date ${dateString}`);
+        return
+    } else if (fs.statSync(path.join(settings.notesPath, dateString)).isFile()) {
+        console.log(`Path ${path.join(settings.notesPath, dateString)} describes a file, not a directory`); 
+        return
+    }
+    
+    const dateDir = fs.readdirSync(path.join(settings.notesPath, dateString));
+    console.log(`--- ${dateString} ---`);
+    console.log(dateDir.join('\n'));
+}
+
 program
     .version('0.1.0')
-    .description('A simple cli for taking daily notes.')
+    .description('A simple cli for taking daily notes')
+
+program
+    .command('open', { isDefault: true })
+    .description('default action which opens a note in vim.')
     .arguments('[filename]')
-    .option("-d --date <date>", "provide a date", getDateString(moment()))
-    .option("-o --offset <offset>", "number of days ago (-) or in future (+)", 0)
+    .option("-d --date <date>", "provide a date", (date) => parseDateOrDefault(date, moment()), moment())
+    .option("-o --offset <offset>", "number of days ago (-) or in future (+)", (offset) => parseIntOrDefault(offset, 0), 0)
     .action((filename, cmdObj) => {
-        main(filename, {
+        open(filename, {
             date: cmdObj.date,
             offset: cmdObj.offset,
         });
     });
+
+program
+    .command('list')
+    .description('lists the notes for a given date')
+    .option("-d --date <date>", "provide a date", (date) => parseDateOrDefault(date, moment()), moment())
+    .option("-o --offset <offset>", "number of days ago (-) or in future (+)", (offset) => parseIntOrDefault(offset, 0), 0)
+    .action((cmdObj) => {
+        list(cmdObj.date, cmdObj.offset)
+    });
+
+// TODO
+// command that will compile all notes for a given day (or for all time) together into one text file
+// probably output to console
 
 program.parse(process.argv);
