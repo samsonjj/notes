@@ -5,6 +5,9 @@
   "bin": {
     "notes": "./index.js"
   },
+  "scripts": {
+    "test": "mocha"
+  },
   "repository": "https://github.com/samsonjj/notes",
   "author": "Jonathan Samson <jonathansamsonvcu@gmail.com>",
   "license": "MIT",

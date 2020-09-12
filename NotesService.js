@@ -1,10 +1,13 @@
 const fs = require('fs');
 const path = require('path');
+const assert = require('assert');
 
 const { getDateString } = require('./util');
 
+const GLOBAL_SUBDIR = 'global';
+
 const DATE_FLAG = '<date>';
-const NAME_FLAG = '<filename>'
+const TITLE_FLAG = '<title>'
 
 /**
  * NotesServiceFS is a class containing methods to perform CRUD operations on notes.
@@ -22,34 +25,60 @@ class NotesServiceFS {
     /**
      * Create a note on the user's file system
      * @param {Object} options
-        * @param {string} options.name
-        * @param {moment.Moment} options.date
+        * @param {string} options.title
+        * @param {moment.Moment} options.date - the date of the note. Can be falsy, in which case a global/permanent note is created.
         * @param {string} options.template
      */
-    createNote({name, date, template}) {
-        fs.mkdirSync(getDir(date), { recursive: true });
+    createNote({ title = 'default', date, template = '' }) {
+        fs.mkdirSync(this._getDir(date), { recursive: true });
         
-        if (fs.existsSync(file)) {
+        if (fs.existsSync(this._getPath(title, date))) {
             throw 'note already exists';
         }
 
         const data = JSON.stringify({
-            text: fromTemplate(template, { name, date }),
+            text: fromTemplate(template, { title, date }),
         });
 
-        fs.writeFileSync(getPath(name, date), data);
+        fs.writeFileSync(this._getPath(title, date), data);
     }
 
     /**
-     * Update a note.
+     * Update a note
+     * @param {Object} options
+        * @param {string} options.title
+        * @param {moment.Moment} options.date - the date of the note. Can be falsy, in which case a global/permanent note is created.
+     * @param {Object} note - data to overwrite the note with
      */
-    updateNote() {}
-    deleteNote() {}
+    updateNote({ title, date }, note) {
+        const path = this._getPath(title, date);
+        assert(fs.existsSync(path), 'note does not exist');
+
+        const data = JSON.stringify(note);
+        fs.writeFileSync(path, data);
+    }
+
+    /**
+     * Create a note on the user's file system
+     * @param {Object} options
+        * @param {string} options.title
+        * @param {moment.Moment} options.date - the date of the note. Can be falsy, in which case a global/permanent note is created.
+     */
+    deleteNote({ title, date }) {
+        const path = this._getPath(title, date);
+        assert(fs.existsSync(path), 'note does not exist');
+        
+        fs.unlinkSync(path);
+    }
     
-    getNote({name, date}) {
-        const path = getPath(name, date);
-        if (fs.existsSync(path)) {
-            const data = fs.readFileSync(path);
+    /**
+     * Retrieve a note based on 
+     * @param {*} param0 
+     */
+    getNote({title, date}) {
+        const file = this._getPath(title, date);
+        if (fs.existsSync(file)) {
+            const data = fs.readFileSync(file);
             try {
                 const note = JSON.parse(data);
                 return note;
@@ -62,33 +91,33 @@ class NotesServiceFS {
     }
 
     getNotes() {}
+
+    /**
+     * @param {moment.Moment} date
+     */
+    _getDir(date) {
+        return path.join(this.notesPath, date ? getDateString(date) : GLOBAL_SUBDIR);
+    }
+
+    /**
+     * @param {string} title 
+     * @param {moment.Moment} date
+     */
+    _getPath(title, date) {
+        return path.join(this._getDir(date), title);
+    }
 }
 
 /**
  * @param {string} template
  * @param {Object} values
- * @param {string} values.name
+ * @param {string} values.title
  * @param {moment.Moment} values.date
  */
-function fromTemplate(template, { name, date }) {
-    template = template.replace(DATE_FLAG, getDateString(date));
-    template = template.replace(NAME_FLAG, name);
+function fromTemplate(template, { title, date }) {
+    if (date) template = template.replace(DATE_FLAG, getDateString(date));
+    template = template.replace(TITLE_FLAG, title);
     return template;
-}
-
-/**
- * @param {moment.Moment} date
- */
-function getDir(date) {
-    return path.join(this.notesPath, getDateString(date));
-}
-
-/**
- * @param {string} name
- * @param {moment.Moment} date
- */
-function getPath(name, date) {
-    return path.join(getDir(date), name);
 }
 
 module.exports = NotesServiceFS;

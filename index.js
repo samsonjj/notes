@@ -182,6 +182,19 @@ program
         list(cmdObj.date, cmdObj.offset)
     });
 
+program
+    .command('test')
+    .description('test command for development')
+    .arguments('[title]')
+    .option("-d --date <date>", "provide a date", (date) => parseDateOrDefault(date, moment()), moment())
+    .option("-o --offset <offset>", "number of days ago (-) or in future (+)", (offset) => parseIntOrDefault(offset, 0), 0)
+    .action((filename, cmdObj) => {
+        openNoteInVim(filename, {
+            date: cmdObj.date,
+            offset: cmdObj.offset,
+        });
+    });
+
 // TODO
 // command that will compile all notes for a given day (or for all time) together into one text file
 // probably output to console
