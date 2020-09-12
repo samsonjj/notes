@@ -7,6 +7,8 @@ const os = require('os');
 const moment = require('moment');
 const { parse } = require('path');
 
+const { getDateString } = require('./util');
+
 const USER_SETTINGS_PATH = path.join(os.homedir(), '.config', 'notes', 'userSettings.json');
 const DATE_FLAG = '<date>';
 const FILENAME_FLAG = '<filename>';
@@ -36,14 +38,6 @@ function fromTemplate(template, { date, filename }) {
     template = template.replace(DATE_FLAG, date);
     template = template.replace(FILENAME_FLAG, filename);
     return template;
-}
-
-/**
- * Get the date string used for folder naming.
- * @param {moment.Moment} date 
- */
-function getDateString(date) {
-    return `${date.year()}-${date.month()+1}-${date.date()}`;
 }
 
 function correctExtension(filename, extension) {
