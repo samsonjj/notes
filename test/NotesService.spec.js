@@ -76,6 +76,19 @@ describe('NotesService', function() {
         });
     });
     
+    describe('getNotes()', function() { 
+        it('can get all notes for a date', function() {
+            const date = moment('2011-12-13');
+
+            notesService.createNote({ title: 'shoppingList', date, template: 'foo' });
+            notesService.createNote({ title: 'meetingNotes', date, template: 'bar' });
+            
+            const notes = notesService.getNotes({ date });
+            assert(notes.length === 2);
+            assert(notes.find(note => note.title === 'shoppingList').text === 'foo');
+        });
+    });
+    
     describe('updateNote()', function() {
         const title = 'myNote';
         const date = moment();

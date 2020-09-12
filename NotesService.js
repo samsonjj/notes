@@ -37,6 +37,7 @@ class NotesServiceFS {
         }
 
         const data = JSON.stringify({
+            title,
             text: fromTemplate(template, { title, date }),
         });
 
@@ -75,7 +76,7 @@ class NotesServiceFS {
      * Retrieve a note based on 
      * @param {*} param0 
      */
-    getNote({title, date}) {
+    getNote({ title, date }) {
         const file = this._getPath(title, date);
         if (fs.existsSync(file)) {
             const data = fs.readFileSync(file);
@@ -90,7 +91,13 @@ class NotesServiceFS {
         return null;
     }
 
-    getNotes() {}
+    getNotes({ date }) {
+        const dir = this._getDir(date);
+        const files = fs.readdirSync(dir);
+        return files.map(file => {
+            return this.getNote({ title: file, date });
+        });
+    }
 
     /**
      * @param {moment.Moment} date
