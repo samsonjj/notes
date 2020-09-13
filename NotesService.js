@@ -36,12 +36,14 @@ class NotesServiceFS {
             throw 'note already exists';
         }
 
-        const data = JSON.stringify({
+        const note = {
             title,
             text: fromTemplate(template, { title, date }),
-        });
+        };
 
-        fs.writeFileSync(this._getPath(title, date), data);
+        fs.writeFileSync(this._getPath(title, date), JSON.stringify(note));
+        
+        return note;
     }
 
     /**
@@ -57,6 +59,8 @@ class NotesServiceFS {
 
         const data = JSON.stringify(note);
         fs.writeFileSync(path, data);
+        
+        return note;
     }
 
     /**
@@ -81,7 +85,7 @@ class NotesServiceFS {
         if (fs.existsSync(file)) {
             const data = fs.readFileSync(file);
             try {
-                const note = JSON.parse(data);
+                const note = JSON.parse(String(data));
                 return note;
             } catch (e) {
                 console.error(e);
@@ -93,6 +97,11 @@ class NotesServiceFS {
 
     getNotes({ date }) {
         const dir = this._getDir(date);
+
+        if (!fs.existsSync(dir)) {
+            return [];
+        }
+
         const files = fs.readdirSync(dir);
         return files.map(file => {
             return this.getNote({ title: file, date });

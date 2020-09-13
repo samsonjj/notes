@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 const { program } = require('commander');
-const { spawn } = require('child_process');
+const { spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const moment = require('moment');
 const { parse } = require('path');
 
+const NotesService = require('./NotesService');
 const { getDateString } = require('./util');
 
 const USER_SETTINGS_PATH = path.join(os.homedir(), '.config', 'notes', 'userSettings.json');
@@ -34,25 +35,12 @@ class Settings {
     }
 }
 
-function fromTemplate(template, { date, filename }) {
-    template = template.replace(DATE_FLAG, date);
-    template = template.replace(FILENAME_FLAG, filename);
-    return template;
-}
-
-function correctExtension(filename, extension) {
-    const parts = filename.split('.');
-    if (parts.length < 2)
-        return `${filename}.${extension}`;
-    return filename;
-}
-
 /**
  * Open file in vim.
  * @param {String} path 
  */
 function openFileInVim(path) {
-    spawn('vim', [path], { stdio: 'inherit' });
+    spawnSync('vim', [path], { stdio: 'inherit' });
 }
 
 function loadUserSettings() {
@@ -91,46 +79,63 @@ function parseIntOrDefault(offset, _default) {
     return n;
 }
 
-function open(filename = 'default.txt', {
-    date,
-    offset,
-}) { 
+/**
+ * 
+ * @param {Object} options
+    * @param {string} options.title
+    * @param {moment.Moment} options.date
+    * @param {number} options.offset
+ */
+function openNote({ title = 'default', date, offset}) {
     const settings = new Settings(loadUserSettings());
+    const notesService = new NotesService({
+        notesPath: settings.notesPath,
+    });
 
-    filename = correctExtension(filename, settings.extension);
+    date.add(offset, 'day');
 
-    // use the current date as the folder name
-    const dateString = getDateString(date.add(offset, 'day'));
-
-    // create directories
-    fs.mkdirSync(
-        path.join(settings.notesPath, dateString),
-        { recursive: true }     
-    );
-
-    const file = path.join(
-        settings.notesPath,
-        dateString,
-        filename
-    );
-
-    // create notes file
-    if (!fs.existsSync(file)) {
+    let note = notesService.getNote({ title, date });
+    if (!note) { 
         let template = settings.template;
-        if (settings.templateFile) { 
-            try { template = String(fs.readFileSync(settings.templateFile)) }
-            catch (err) { console.error(`Could not read template file at ${settings.templateFile}.`) }
+        if (settings.templateFile) {
+            try {
+                template = String(fs.readFileSync(settings.templateFile));
+            } catch(e) {
+                console.error(e.message);
+            }
         }
 
-        const data = fromTemplate(template, {
-            date: dateString,
-            filename,
-            filepath: file,
+        note = notesService.createNote({
+            title,
+            date,
+            template,
         });
-        fs.writeFileSync(file, data);
     }
+      
+    const updatedText = editInTempFile(
+        `${getDateString(date)}-${title}`,
+        note.text
+    );
 
-    openFileInVim(file)
+    notesService.updateNote({ title, date }, {
+        ...note,
+        text: updatedText,
+    });
+    
+    console.log('note saved to disk 😇');
+}
+
+function editInTempFile(filename, data) {
+    const tempDir = path.join(__dirname, 'temp');
+    const tempFilename = filename;
+    const tempFilepath = path.join(tempDir, tempFilename);
+
+    fs.mkdirSync(tempDir, { recursive: true });
+    fs.writeFileSync(tempFilepath, data);
+    
+    openFileInVim(tempFilepath);
+
+    return String(fs.readFileSync(tempFilepath));
 }
 
 /**
@@ -141,19 +146,16 @@ function open(filename = 'default.txt', {
 function list(date, offset) {
     const settings = new Settings(loadUserSettings());
 
-    const notesDir = fs.readdirSync(settings.notesPath);
-    const dateString = getDateString(date.add(offset));
-    if (notesDir.findIndex(value => value === dateString) === -1) {
-        console.log(`No notes for date ${dateString}`);
-        return
-    } else if (fs.statSync(path.join(settings.notesPath, dateString)).isFile()) {
-        console.log(`Path ${path.join(settings.notesPath, dateString)} describes a file, not a directory`); 
-        return
-    }
+    const notesService = new NotesService({ notesPath: settings.notesPath });
+    date = date.add(offset, 'day');
     
-    const dateDir = fs.readdirSync(path.join(settings.notesPath, dateString));
-    console.log(`--- ${dateString} ---`);
-    console.log(dateDir.join('\n'));
+    const notes = notesService.getNotes({ date });
+    console.log(`--- ${getDateString(date)} ---`);
+    if (notes.length === 0) {
+        console.log('<none>');
+    } else {
+        console.log(notes.map(note => `* ${note.title}`).join('\n'));
+    }
 }
 
 program
@@ -161,13 +163,13 @@ program
     .description('A simple cli for taking daily notes')
 
 program
-    .command('open', { isDefault: true })
-    .description('default action which opens a note in vim.')
-    .arguments('[filename]')
+    .description('test command for development')
+    .arguments('[title]')
     .option("-d --date <date>", "provide a date", (date) => parseDateOrDefault(date, moment()), moment())
     .option("-o --offset <offset>", "number of days ago (-) or in future (+)", (offset) => parseIntOrDefault(offset, 0), 0)
-    .action((filename, cmdObj) => {
-        open(filename, {
+    .action((title, cmdObj) => {
+        openNote({
+            title, 
             date: cmdObj.date,
             offset: cmdObj.offset,
         });
@@ -180,19 +182,6 @@ program
     .option("-o --offset <offset>", "number of days ago (-) or in future (+)", (offset) => parseIntOrDefault(offset, 0), 0)
     .action((cmdObj) => {
         list(cmdObj.date, cmdObj.offset)
-    });
-
-program
-    .command('test')
-    .description('test command for development')
-    .arguments('[title]')
-    .option("-d --date <date>", "provide a date", (date) => parseDateOrDefault(date, moment()), moment())
-    .option("-o --offset <offset>", "number of days ago (-) or in future (+)", (offset) => parseIntOrDefault(offset, 0), 0)
-    .action((filename, cmdObj) => {
-        openNoteInVim(filename, {
-            date: cmdObj.date,
-            offset: cmdObj.offset,
-        });
     });
 
 // TODO

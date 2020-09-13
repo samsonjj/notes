@@ -4,7 +4,9 @@
  * @param {moment.Moment} date 
  */
 function getDateString(date) {
-    return `${date.year()}-${date.month()+1}-${date.date()}`;
+    const month = `0${date.month()+1}`.slice(-2);
+    const day = `0${date.date()}`.slice(-2);
+    return `${date.year()}-${month}-${day}`;
 }
 
 module.exports = {
