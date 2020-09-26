@@ -3,11 +3,9 @@ const path = require('path');
 const assert = require('assert');
 
 const { getDateString } = require('./util');
+const { fromTemplate } = require('./notes');
 
 const GLOBAL_SUBDIR = 'global';
-
-const DATE_FLAG = '<date>';
-const TITLE_FLAG = '<title>'
 
 /**
  * NotesServiceFS is a class containing methods to perform CRUD operations on notes.
@@ -122,18 +120,6 @@ class NotesServiceFS {
     _getPath(title, date) {
         return path.join(this._getDir(date), title);
     }
-}
-
-/**
- * @param {string} template
- * @param {Object} values
- * @param {string} values.title
- * @param {moment.Moment} values.date
- */
-function fromTemplate(template, { title, date }) {
-    if (date) template = template.replace(DATE_FLAG, getDateString(date));
-    template = template.replace(TITLE_FLAG, title);
-    return template;
 }
 
 module.exports = NotesServiceFS;

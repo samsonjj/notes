@@ -7,12 +7,12 @@ const os = require('os');
 const moment = require('moment');
 const { parse } = require('path');
 
+require('dotenv').config();
+
 const NotesService = require('./NotesService');
 const { getDateString } = require('./util');
 
 const USER_SETTINGS_PATH = path.join(os.homedir(), '.config', 'notes', 'userSettings.json');
-const DATE_FLAG = '<date>';
-const FILENAME_FLAG = '<filename>';
 
 class Settings {
     static defaultSettings = {
@@ -135,7 +135,9 @@ function editInTempFile(filename, data) {
     
     openFileInVim(tempFilepath);
 
-    return String(fs.readFileSync(tempFilepath));
+    const updatedText = String(fs.readFileSync(tempFilepath));
+    fs.unlinkSync(tempFilepath);
+    return updatedText;
 }
 
 /**
