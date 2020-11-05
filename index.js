@@ -9,7 +9,7 @@ const { parse } = require('path');
 
 require('dotenv').config();
 
-const NotesService = require('./NotesService');
+const NotesService = require('./NotesServiceMongo');
 const { getDateString } = require('./util');
 
 const USER_SETTINGS_PATH = path.join(os.homedir(), '.config', 'notes', 'userSettings.json');
@@ -46,7 +46,7 @@ function openFileInVim(path) {
 function loadUserSettings() {
     if (!fs.existsSync(USER_SETTINGS_PATH)) {
         const parts = USER_SETTINGS_PATH.split('/');
-        const dir = parts.slice(0, parts.length-1).join('/');
+        const dir = parts.slice(0, parts.length - 1).join('/');
 
         fs.mkdirSync(dir, { recursive: true });
         fs.writeFileSync(
@@ -69,13 +69,13 @@ function parseDateOrDefault(date, _default) {
     try {
         return moment(date);
     } catch {
-        return _default 
+        return _default
     }
 }
 
 function parseIntOrDefault(offset, _default) {
     const n = parseInt(offset);
-    if (Number.isNaN(n)) return _default;   
+    if (Number.isNaN(n)) return _default;
     return n;
 }
 
@@ -86,43 +86,49 @@ function parseIntOrDefault(offset, _default) {
     * @param {moment.Moment} options.date
     * @param {number} options.offset
  */
-function openNote({ title = 'default', date, offset}) {
+async function openNote({ title = 'default', date, offset }) {
     const settings = new Settings(loadUserSettings());
     const notesService = new NotesService({
-        notesPath: settings.notesPath,
+        mongoUri: process.env['MONGO_URI'],
+        dbname: process.env['MONGO_DBNAME'],
     });
+    try {
+        await notesService.init();
 
-    date.add(offset, 'day');
+        date.add(offset, 'day');
 
-    let note = notesService.getNote({ title, date });
-    if (!note) { 
-        let template = settings.template;
-        if (settings.templateFile) {
-            try {
-                template = String(fs.readFileSync(settings.templateFile));
-            } catch(e) {
-                console.error(e.message);
+        let note = await notesService.getNote({ title, date });
+        if (!note) {
+            let template = settings.template;
+            if (settings.templateFile) {
+                try {
+                    template = String(fs.readFileSync(settings.templateFile));
+                } catch (e) {
+                    console.error(e.message);
+                }
             }
+
+            note = await notesService.createNote({
+                title,
+                date,
+                template,
+            });
         }
 
-        note = notesService.createNote({
-            title,
-            date,
-            template,
-        });
-    }
-      
-    const updatedText = editInTempFile(
-        `${getDateString(date)}-${title}`,
-        note.text
-    );
+        const updatedText = editInTempFile(
+            `${getDateString(date)}-${title}`,
+            note.text
+        );
 
-    notesService.updateNote({ title, date }, {
-        ...note,
-        text: updatedText,
-    });
-    
-    console.log('note saved to disk 😇');
+        await notesService.updateNote({ title, date }, {
+            ...note,
+            text: updatedText,
+        });
+
+        console.log('note saved to disk 😇');
+    } finally {
+        notesService.close();
+    }
 }
 
 function editInTempFile(filename, data) {
@@ -132,7 +138,7 @@ function editInTempFile(filename, data) {
 
     fs.mkdirSync(tempDir, { recursive: true });
     fs.writeFileSync(tempFilepath, data);
-    
+
     openFileInVim(tempFilepath);
 
     const updatedText = String(fs.readFileSync(tempFilepath));
@@ -145,18 +151,27 @@ function editInTempFile(filename, data) {
  * @param {moment.Moment} date 
  * @param {Number} offset 
  */
-function list(date, offset) {
+async function list(date, offset) {
     const settings = new Settings(loadUserSettings());
 
-    const notesService = new NotesService({ notesPath: settings.notesPath });
-    date = date.add(offset, 'day');
-    
-    const notes = notesService.getNotes({ date });
-    console.log(`--- ${getDateString(date)} ---`);
-    if (notes.length === 0) {
-        console.log('<none>');
-    } else {
-        console.log(notes.map(note => `* ${note.title}`).join('\n'));
+    const notesService = new NotesService({
+        mongoUri: process.env['MONGO_URI'],
+        dbname: process.env['MONGO_DBNAME'],
+    });
+    try {
+        await notesService.init();
+
+        date = date.add(offset, 'day');
+
+        const notes = await notesService.getNotes({ date });
+        console.log(`--- ${getDateString(date)} ---`);
+        if (notes.length === 0) {
+            console.log('<none>');
+        } else {
+            console.log(notes.map(note => `* ${note.title}`).join('\n'));
+        }
+    } finally {
+        notesService.close();
     }
 }
 
@@ -169,9 +184,9 @@ program
     .arguments('[title]')
     .option("-d --date <date>", "provide a date", (date) => parseDateOrDefault(date, moment()), moment())
     .option("-o --offset <offset>", "number of days ago (-) or in future (+)", (offset) => parseIntOrDefault(offset, 0), 0)
-    .action((title, cmdObj) => {
-        openNote({
-            title, 
+    .action(async (title, cmdObj) => {
+        await openNote({
+            title,
             date: cmdObj.date,
             offset: cmdObj.offset,
         });
@@ -182,8 +197,8 @@ program
     .description('lists the notes for a given date')
     .option("-d --date <date>", "provide a date", (date) => parseDateOrDefault(date, moment()), moment())
     .option("-o --offset <offset>", "number of days ago (-) or in future (+)", (offset) => parseIntOrDefault(offset, 0), 0)
-    .action((cmdObj) => {
-        list(cmdObj.date, cmdObj.offset)
+    .action(async (cmdObj) => {
+        await list(cmdObj.date, cmdObj.offset)
     });
 
 // TODO
