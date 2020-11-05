@@ -125,7 +125,7 @@ async function openNote({ title = 'default', date, offset }) {
             text: updatedText,
         });
 
-        console.log('note saved to disk 😇');
+        console.log('note saved to mongo 😇');
     } finally {
         notesService.close();
     }
@@ -151,7 +151,7 @@ function editInTempFile(filename, data) {
  * @param {moment.Moment} date 
  * @param {Number} offset 
  */
-async function list(date, offset) {
+async function list({date, offset}) {
     const settings = new Settings(loadUserSettings());
 
     const notesService = new NotesService({
@@ -161,14 +161,14 @@ async function list(date, offset) {
     try {
         await notesService.init();
 
-        date = date.add(offset, 'day');
+        date.add(offset, 'day');
 
         const notes = await notesService.getNotes({ date });
         console.log(`--- ${getDateString(date)} ---`);
         if (notes.length === 0) {
             console.log('<none>');
         } else {
-            console.log(notes.map(note => `* ${note.title}`).join('\n'));
+            console.log(notes.map(note => `${note.title}`).join('\n'));
         }
     } finally {
         notesService.close();
@@ -195,10 +195,8 @@ program
 program
     .command('list')
     .description('lists the notes for a given date')
-    .option("-d --date <date>", "provide a date", (date) => parseDateOrDefault(date, moment()), moment())
-    .option("-o --offset <offset>", "number of days ago (-) or in future (+)", (offset) => parseIntOrDefault(offset, 0), 0)
-    .action(async (cmdObj) => {
-        await list(cmdObj.date, cmdObj.offset)
+    .action(async function (cmdObj) {
+        await list({ date: cmdObj.parent.date, offset: cmdObj.parent.offset })
     });
 
 // TODO
