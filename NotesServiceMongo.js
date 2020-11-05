@@ -7,6 +7,8 @@ const { fromTemplate } = require('./notes');
 
 const COLLECTION = 'notes';
 
+const GLOBAL = 'GLOBAL';
+
 /**
  * NotesServiceMongo is a class containing methods to perform CRUD operations on notes.
  * This particular implementation uses mongodb to save notes
@@ -17,16 +19,14 @@ class NotesServiceMongo {
     constructor({ mongoUri, dbname }) {
         this.mongoUri = mongoUri;
         this.dbname = dbname;
-
-        this.client = new MongoClient(this.mongoUri);
-        this.db = this.client.db(this.dbname);
-        this.collection = this.db.collection(COLLECTION);
-        
-        this.collection.createIndex({ title: 1, date: 1 }, { sparse: true, unique: true });
+        this.client = new MongoClient(this.mongoUri, { useUnifiedTopology: true });
     }
     
     async init() {
         await this.client.connect();
+        this.db = this.client.db(this.dbname);
+        this.collection = this.db.collection(COLLECTION);
+        await this.collection.createIndex({ title: 1, date: 1 }, { sparse: true, unique: true });
     }
 
     /**
@@ -37,6 +37,8 @@ class NotesServiceMongo {
         * @param {string} options.template
      */
     async createNote({ title = 'default', date, template = '' }) {
+        date = date ? getDateString(date) : GLOBAL;
+
         const note = {
             title,
             date,
@@ -60,8 +62,10 @@ class NotesServiceMongo {
         * @param {string} note.text - the text of the note
      */
     async updateNote({ title, date }, { text }) {
+        assert(title, 'updateNote: missing title');
+        date = date ? getDateString(date) : GLOBAL;
         const response = await this.collection.findOneAndUpdate({ title, date }, { $set: { text }});
-        return response.value
+        return response.value;
     }
 
     /**
@@ -71,26 +75,34 @@ class NotesServiceMongo {
         * @param {moment.Moment} options.date - the date of the note. Can be falsy, in which case a global/permanent note is created.
      */
     async deleteNote({ title, date }) {
-        this.collection.deleteOne({ title, date });
+        date = date ? getDateString(date) : GLOBAL;
+        await this.collection.deleteOne({ title, date });
     }
     
     /**
      * Retrieve a note based on title and date
      */
     async getNote({ title, date }) {
-        return (await this.collection.findOne({ title, date }));
+        const query = {};
+        if (title) query.title = title;
+        query.date = date ? getDateString(date) : GLOBAL;
+
+        return (await this.collection.findOne(query));
     }
 
     /**
      * Get notes by date
      * @param {*} param0 
      */
-    async getNotes({ date }) {
-        return (await this.collection.find({ title, date })).toArray();
+    async getNotes({ title, date }) {
+        const query = {};
+        if (title) query.title = title;
+        query.date = date ? getDateString(date) : GLOBAL;
+        return (await this.collection.find(query)).toArray();
     }
     
     async close() {
-        return this.client.close();
+        await this.client.close();
     }
 }
 

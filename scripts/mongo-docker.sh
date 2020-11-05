@@ -1,0 +1,1 @@
+docker run --name mongoNotes -d -p 27017:27017 --rm mongo:latest

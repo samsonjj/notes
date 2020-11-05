@@ -11,7 +11,7 @@ const TITLE_FLAG = '<title>'
  * @param {moment.Moment} values.date
  */
 function fromTemplate(template, { title, date }) {
-    if (date) template = template.replace(DATE_FLAG, getDateString(date));
+    if (date) template = template.replace(DATE_FLAG, typeof date === 'string' ? date : getDateString(date));
     template = template.replace(TITLE_FLAG, title);
     return template;
 }

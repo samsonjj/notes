@@ -12,6 +12,7 @@
   "author": "Jonathan Samson <jonathansamsonvcu@gmail.com>",
   "license": "MIT",
   "dependencies": {
+    "chai": "^4.2.0",
     "commander": "^6.0.0",
     "dotenv": "^8.2.0",
     "mocha": "^8.1.3",
