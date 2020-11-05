@@ -1,16 +1,10 @@
-
-const assert = require('assert');
-const path = require('path');
 const moment = require('moment');
-const fs = require('fs');
 const mongodb = require('mongodb');
 const expect = require('chai').expect;
 
 require('dotenv').config();
 
-const NotesService = require('../NotesServiceMongo');
-const { getDateString } = require('../util');
-const notes = require('../notes');
+const NotesService = require('../src/NotesServiceMongo');
 
 async function cleanDatabase(uri, dbname) {
   const client = await mongodb.connect(uri, { useUnifiedTopology: true });

@@ -4,7 +4,7 @@ const path = require('path');
 const moment = require('moment');
 const fs = require('fs');
 
-const NotesService = require('../NotesService');
+const NotesService = require('../src/NotesService');
 const { cleanTestNotesDirectory, TEST_NOTES_DIR } = require('./testUtil');
 
 describe('NotesService', function() {
