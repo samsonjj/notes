@@ -6,7 +6,8 @@
     "notes": "./src/index.js"
   },
   "scripts": {
-    "test": "mocha"
+    "test": "mocha",
+    "clean": "rm -r ./src/temp"
   },
   "repository": "https://github.com/samsonjj/notes",
   "author": "Jonathan Samson <jonathansamsonvcu@gmail.com>",

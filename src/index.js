@@ -180,7 +180,6 @@ program
     .description('A simple cli for taking daily notes')
 
 program
-    .description('test command for development')
     .arguments('[title]')
     .option("-d --date <date>", "provide a date", (date) => parseDateOrDefault(date, moment()), moment())
     .option("-o --offset <offset>", "number of days ago (-) or in future (+)", (offset) => parseIntOrDefault(offset, 0), 0)
@@ -195,7 +194,7 @@ program
 program
     .command('list')
     .description('lists the notes for a given date')
-    .action(async function (cmdObj) {
+    .action(async (cmdObj) => {
         await list({ date: cmdObj.parent.date, offset: cmdObj.parent.offset })
     });
 
